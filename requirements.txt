@@ -1,0 +1,15 @@
+# Core data processing
+pandas>=2.2,<3.0
+numpy>=2.0,<3.0
+scikit-learn>=1.4,<2.0
+isodate>=0.7,<1.0
+
+# Deep learning and transformers
+torch>=2.2
+transformers>=4.45
+accelerate>=0.30
+sentencepiece>=0.2
+
+# Notebook runtime
+jupyter>=1.0
+ipywidgets>=8.0
