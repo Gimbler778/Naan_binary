@@ -3,6 +3,7 @@
 This project trains a multitask FLAN-T5 model on recipe data from `cleaned_recipes.csv`.
 
 The pipeline does two tasks at once:
+
 - Generate recipe text (name + step-by-step instructions) from ingredients.
 - Predict per-serving nutrition values (calories, fat, protein, etc.) with a regression head.
 
@@ -49,6 +50,7 @@ Run cells top-to-bottom.
 ## Training Defaults in Notebook
 
 Current notebook defaults are tuned for local experimentation:
+
 - Model: `google/flan-t5-small`
 - Subsample size: `MAX_ROWS = 30000`
 - Steps: `max_steps = 120`
@@ -60,6 +62,7 @@ For better quality, increase data/steps after confirming your system can handle 
 `cleaned_recipes.csv` is intentionally ignored in `.gitignore` to avoid GitHub file size issues.
 
 See `DATASET.md` for options:
+
 - Keep full CSV local and share only code.
 - Share a smaller sample CSV.
 - Use Git LFS for large dataset versioning.
