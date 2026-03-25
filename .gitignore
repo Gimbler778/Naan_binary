@@ -8,6 +8,7 @@ __pycache__/
 .venv/
 venv/
 env/
+dl_env/
 
 # Notebook checkpoints
 .ipynb_checkpoints/
@@ -19,9 +20,11 @@ env/
 # Logs and temp files
 *.log
 *.tmp
+*.bak
 
 # Model artifacts and checkpoints
 recipe_multitask_ckpt/
+recipe_checkpoints/
 checkpoints/
 *.pt
 *.pth
@@ -36,6 +39,12 @@ data/
 # Caches
 .cache/
 .huggingface/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter runtime files
+*.nbconvert.ipynb
 
 # OS files
 .DS_Store

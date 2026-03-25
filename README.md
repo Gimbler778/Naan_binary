@@ -1,83 +1,146 @@
 # Naan Binary: Recipe Generation + Nutrition Prediction
 
-This project trains a multitask FLAN-T5 model on recipe data from `cleaned_recipes.csv`.
+This project trains a multitask FLAN-T5 pipeline on `cleaned_recipes.csv` to:
 
-The pipeline does two tasks at once:
+- Generate recipe text (name + steps) from ingredients.
+- Predict per-serving nutrition values.
 
-- Generate recipe text (name + step-by-step instructions) from ingredients.
-- Predict per-serving nutrition values (calories, fat, protein, etc.) with a regression head.
+The notebook also includes:
+
+- A dedicated nutrition regressor (separate from the language model head).
+- Recipe validity scoring and reranking for generated candidates.
+- GPU-aware training/evaluation settings (AMP, TF32, dataloader tuning).
 
 ## Project Files
 
-- `info.ipynb`: End-to-end notebook (load data, preprocess, train, infer).
+- `info.ipynb`: End-to-end workflow (data prep, training, evaluation, inference).
 - `cleaned_recipes.csv`: Source dataset (kept local, not tracked in Git).
 - `requirements.txt`: Python dependencies.
-- `.gitignore`: Excludes large data, checkpoints, and local artifacts.
-- `docs/TRAINING_AND_PREPROCESSING.md`: Detailed documentation of the full pipeline.
 - `DATASET.md`: Dataset handling and large-file strategy for GitHub.
+- `docs/TRAINING_AND_PREPROCESSING.md`: Additional pipeline notes.
 
-## Quick Start
+## Environment Setup (venv)
 
-## 1) Create and activate a virtual environment
+## 1) Create a virtual environment
+
+Windows (PowerShell or CMD):
+
+```powershell
+python -m venv .venv
+```
+
+## 2) Activate virtual environment
 
 Windows PowerShell:
 
 ```powershell
-python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-## 2) Install dependencies
+Windows CMD:
 
-```powershell
+```cmd
+.venv\Scripts\activate.bat
+```
+
+Linux/macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+## 3) Install dependencies
+
+```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 3) Place dataset in project root
+## 4) Verify PyTorch + GPU (optional but recommended)
 
-Expected file path:
+```bash
+python -c "import torch; print('cuda:', torch.cuda.is_available()); print('device:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'cpu')"
+```
 
-- `cleaned_recipes.csv`
+## 5) Run the notebook
 
-## 4) Run notebook
-
-```powershell
+```bash
 jupyter notebook info.ipynb
 ```
 
 Run cells top-to-bottom.
 
-## Training Defaults in Notebook
+## Current Notebook Behavior
 
-Current notebook defaults are tuned for local experimentation:
+- Base model: `google/flan-t5-small`
+- Uses all prepared rows by default (`MAX_ROWS = len(df_work)`).
+- Nutrition targets include log transform for heavy-tailed columns:
+  - `Calories`
+  - `SodiumContent`
+  - `CholesterolContent`
+- Multitask training uses weighted regression + sequence generation loss.
+- Dedicated nutrition regressor is trained/evaluated separately for numeric prediction quality.
+- Generation uses candidate reranking with recipe-validity heuristics.
 
-- Model: `google/flan-t5-small`
-- Subsample size: `MAX_ROWS = 30000`
-- Steps: `max_steps = 120`
+## GPU Optimization Included
 
-For better quality, increase data/steps after confirming your system can handle it.
+The notebook auto-configures the following when CUDA is available:
+
+- Mixed precision (`bf16` if supported, otherwise `fp16`).
+- TF32 acceleration for matrix multiplications.
+- cuDNN benchmark enabled.
+- Dataloader workers + pinned memory.
+- Gradient checkpointing and eval accumulation for 8 GB class GPUs.
+
+You can monitor GPU usage during training with:
+
+```bash
+nvidia-smi
+```
+
+## Recommended Run Order
+
+1. Data load/import cells.
+2. Preprocessing and dataset build cells.
+3. Model definition + sanity check.
+4. Main training cell.
+5. Validation metrics cell.
+6. Dedicated nutrition regressor cell.
+7. Final inference/recipe generation cell.
+
+## Outputs and Checkpoints
+
+- Training artifacts are written under `recipe_multitask_ckpt/`.
+- Best model by eval loss is saved as:
+  - `recipe_multitask_ckpt/best_eval_loss_model.pt`
 
 ## Notes on Large Files
 
-`cleaned_recipes.csv` is intentionally ignored in `.gitignore` to avoid GitHub file size issues.
+`cleaned_recipes.csv` is intentionally ignored in `.gitignore`.
 
 See `DATASET.md` for options:
 
-- Keep full CSV local and share only code.
-- Share a smaller sample CSV.
-- Use Git LFS for large dataset versioning.
+- Keep full CSV local and share code only.
+- Share a sampled CSV for collaboration.
+- Use Git LFS if your workflow requires dataset versioning.
 
 ## Troubleshooting
 
-- If a package import fails in the notebook, reinstall with:
+- If imports fail:
 
-```powershell
+```bash
 pip install -r requirements.txt
 ```
 
-- If training is slow, reduce:
-  - `MAX_ROWS`
-  - `max_steps`
-  - batch sizes
+- If GPU is not detected, install a CUDA-enabled PyTorch build for your system.
 
-- If you have a GPU, PyTorch CUDA installation usually gives large speedups.
+- If you hit CUDA OOM:
+  - Lower `per_device_train_batch_size`.
+  - Increase `gradient_accumulation_steps`.
+  - Reduce eval batch size.
+
+## Deactivate venv
+
+```bash
+deactivate
+```
