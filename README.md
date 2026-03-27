@@ -1,146 +1,87 @@
-# Naan Binary: Recipe Generation + Nutrition Prediction
+# Naan Binary
 
-This project trains a multitask FLAN-T5 pipeline on `cleaned_recipes.csv` to:
+Recipe generation and nutrition prediction project with:
 
-- Generate recipe text (name + steps) from ingredients.
-- Predict per-serving nutrition values.
+1. Notebook training/inference pipeline.
+2. FastAPI backend for model serving.
+3. React frontend for interactive UI.
 
-The notebook also includes:
+## Current Status
 
-- A dedicated nutrition regressor (separate from the language model head).
-- Recipe validity scoring and reranking for generated candidates.
-- GPU-aware training/evaluation settings (AMP, TF32, dataloader tuning).
+1. Notebook pipeline is available in `Naan_binary_v2.ipynb`.
+2. Backend is implemented under `backend/` with `/api/health` and `/api/predict`.
+3. Frontend is implemented under `frontend/` and connected to the backend.
+4. Repository is configured to ignore large/generated artifacts for GitHub.
 
-## Project Files
+## Project Structure
 
-- `info.ipynb`: End-to-end workflow (data prep, training, evaluation, inference).
-- `cleaned_recipes.csv`: Source dataset (kept local, not tracked in Git).
-- `requirements.txt`: Python dependencies.
-- `DATASET.md`: Dataset handling and large-file strategy for GitHub.
-- `docs/TRAINING_AND_PREPROCESSING.md`: Additional pipeline notes.
+1. `Naan_binary_v2.ipynb`: Main updated notebook pipeline.
+2. `backend/`: FastAPI app and inference service.
+3. `frontend/`: React + Vite UI.
+4. `requirements.txt`: Root notebook/training dependencies.
+5. `backend/requirements.txt`: Backend API/runtime dependencies.
+6. `DATASET.md`: Dataset notes.
+7. `docs/TRAINING_AND_PREPROCESSING.md`: Additional training details.
 
-## Environment Setup (venv)
-
-## 1) Create a virtual environment
-
-Windows (PowerShell or CMD):
+## Environment Setup (Windows)
 
 ```powershell
 python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 ```
 
-## 2) Activate virtual environment
-
-Windows PowerShell:
+## Notebook Setup
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-Windows CMD:
-
-```cmd
-.venv\Scripts\activate.bat
-```
-
-Linux/macOS:
-
-```bash
-source .venv/bin/activate
-```
-
-## 3) Install dependencies
-
-```bash
-pip install --upgrade pip
 pip install -r requirements.txt
+jupyter notebook Naan_binary_v2.ipynb
 ```
 
-## 4) Verify PyTorch + GPU (optional but recommended)
+## Backend Setup and Run
 
-```bash
-python -c "import torch; print('cuda:', torch.cuda.is_available()); print('device:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'cpu')"
+```powershell
+cd backend
+..\dl_env\Scripts\python -m pip install -r requirements.txt
+..\dl_env\Scripts\python run.py
 ```
 
-## 5) Run the notebook
+API docs: `http://127.0.0.1:8000/docs`
 
-```bash
-jupyter notebook info.ipynb
+## Frontend Setup and Run
+
+```powershell
+cd frontend
+npm install
+npm run dev
 ```
 
-Run cells top-to-bottom.
+Frontend URL: `http://localhost:5173`
 
-## Current Notebook Behavior
+## Model and Data Files
 
-- Base model: `google/flan-t5-small`
-- Uses all prepared rows by default (`MAX_ROWS = len(df_work)`).
-- Nutrition targets include log transform for heavy-tailed columns:
-  - `Calories`
-  - `SodiumContent`
-  - `CholesterolContent`
-- Multitask training uses weighted regression + sequence generation loss.
-- Dedicated nutrition regressor is trained/evaluated separately for numeric prediction quality.
-- Generation uses candidate reranking with recipe-validity heuristics.
+Large model artifacts and datasets are intentionally ignored from git.
 
-## GPU Optimization Included
+1. Keep `cleaned_recipes.csv` local.
+2. Keep generated checkpoints local (`recipe_multitask_ckpt/`, `recipe_checkpoints/`, `recipe_model_final/`).
+3. Keep deployed backend model files local under `backend/assets/model_final/`.
 
-The notebook auto-configures the following when CUDA is available:
+If you need to version large files, use Git LFS or a cloud artifact store.
 
-- Mixed precision (`bf16` if supported, otherwise `fp16`).
-- TF32 acceleration for matrix multiplications.
-- cuDNN benchmark enabled.
-- Dataloader workers + pinned memory.
-- Gradient checkpointing and eval accumulation for 8 GB class GPUs.
+## Pre-Push Checklist
 
-You can monitor GPU usage during training with:
+1. Confirm `.gitignore` is applied.
+2. Run backend health check: `GET /api/health`.
+3. Run one prediction through UI or `POST /api/predict`.
+4. Verify no large artifacts are staged.
 
-```bash
-nvidia-smi
+## Push to GitHub
+
+```powershell
+git status
+git add .
+git commit -m "Prepare repository for GitHub: ignore large artifacts, update docs and deps"
+git push -u origin deployment
 ```
 
-## Recommended Run Order
-
-1. Data load/import cells.
-2. Preprocessing and dataset build cells.
-3. Model definition + sanity check.
-4. Main training cell.
-5. Validation metrics cell.
-6. Dedicated nutrition regressor cell.
-7. Final inference/recipe generation cell.
-
-## Outputs and Checkpoints
-
-- Training artifacts are written under `recipe_multitask_ckpt/`.
-- Best model by eval loss is saved as:
-  - `recipe_multitask_ckpt/best_eval_loss_model.pt`
-
-## Notes on Large Files
-
-`cleaned_recipes.csv` is intentionally ignored in `.gitignore`.
-
-See `DATASET.md` for options:
-
-- Keep full CSV local and share code only.
-- Share a sampled CSV for collaboration.
-- Use Git LFS if your workflow requires dataset versioning.
-
-## Troubleshooting
-
-- If imports fail:
-
-```bash
-pip install -r requirements.txt
-```
-
-- If GPU is not detected, install a CUDA-enabled PyTorch build for your system.
-
-- If you hit CUDA OOM:
-  - Lower `per_device_train_batch_size`.
-  - Increase `gradient_accumulation_steps`.
-  - Reduce eval batch size.
-
-## Deactivate venv
-
-```bash
-deactivate
-```
+If your branch name is different, replace `deployment` with your branch.

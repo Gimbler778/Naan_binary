@@ -25,12 +25,16 @@ dl_env/
 # Model artifacts and checkpoints
 recipe_multitask_ckpt/
 recipe_checkpoints/
+recipe_model_final/
 checkpoints/
 *.pt
 *.pth
 *.ckpt
 *.bin
 *.safetensors
+*.onnx
+*.pkl
+*.npy
 
 # Large datasets and generated data
 cleaned_recipes.csv
@@ -43,13 +47,54 @@ data/
 .mypy_cache/
 .ruff_cache/
 
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.production.local
+
+# Backend caches
+backend/__pycache__/
+backend/**/*.py[cod]
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.venv/
+backend/venv/
+backend/env/
+backend/.env
+backend/.env.*
+backend/package-lock.json
+
+# Backend model/runtime outputs (too large for normal git)
+backend/assets/model_final/
+backend/assets/**/*.pt
+backend/assets/**/*.pth
+backend/assets/**/*.ckpt
+backend/assets/**/*.bin
+backend/assets/**/*.safetensors
+backend/assets/**/*.npy
+backend/assets/**/*.pkl
+
 # Jupyter runtime files
 *.nbconvert.ipynb
+
+# Notebook/IDE temp files
+.jupyter/
+.vscode/
 
 # OS files
 .DS_Store
 Thumbs.db
 
-#documentation
-*.md
-!README.md
+# Other large local files
+*.pdf
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# Keep docs tracked
