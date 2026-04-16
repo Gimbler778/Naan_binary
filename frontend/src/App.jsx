@@ -10,6 +10,16 @@ const INITIAL_FORM = {
   num_candidates: 4,
 };
 
+function downloadFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 function App() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
@@ -22,6 +32,25 @@ function App() {
       .map((x) => x.trim())
       .filter(Boolean).length;
   }, [form.ingredients]);
+
+  const nutritionEntries = useMemo(() => {
+    if (!result?.nutrition) {
+      return [];
+    }
+
+    return Object.entries(result.nutrition).map(([label, value]) => ({
+      label,
+      value: Number(value),
+    }));
+  }, [result]);
+
+  const candidateEntries = useMemo(() => {
+    if (!result?.candidates) {
+      return [];
+    }
+
+    return result.candidates.slice(0, 3);
+  }, [result]);
 
   const onChange = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -61,15 +90,57 @@ function App() {
     }
   };
 
+  const handleDownloadRecipe = () => {
+    if (!result?.recipe_text) {
+      return;
+    }
+
+    downloadFile("recipe.txt", result.recipe_text, "text/plain;charset=utf-8");
+  };
+
+  const handleDownloadNutrition = () => {
+    if (!nutritionEntries.length) {
+      return;
+    }
+
+    const csv = [
+      "Nutrient,Value",
+      ...nutritionEntries.map(({ label, value }) => `${label},${value.toFixed(2)}`),
+    ].join("\n");
+
+    downloadFile("nutrition-values.csv", csv, "text/csv;charset=utf-8");
+  };
+
   return (
     <div className="page">
       <div className="bg-shape bg-shape-a" />
       <div className="bg-shape bg-shape-b" />
+      <div className="bg-grid" />
 
       <main className="layout">
         <section className="card input-card">
-          <h1>Naan Recipe Studio</h1>
-          <p className="subtitle">Generate a recipe and nutrition prediction from your ingredients.</p>
+          <div className="hero-copy">
+            <span className="eyebrow">Recipe generation + nutrition estimate</span>
+            <h1>Naan Binary</h1>
+            <p className="subtitle">
+              Turn ingredients into a polished recipe draft and export the nutrition values in one flow.
+            </p>
+          </div>
+
+          <div className="stats-row" aria-label="Input summary">
+            <div className="stat-pill">
+              <span className="stat-value">{ingredientCount}</span>
+              <span className="stat-label">ingredients</span>
+            </div>
+            <div className="stat-pill">
+              <span className="stat-value">{form.total_minutes || 0}</span>
+              <span className="stat-label">minutes</span>
+            </div>
+            <div className="stat-pill">
+              <span className="stat-value">{form.servings || 4}</span>
+              <span className="stat-label">servings</span>
+            </div>
+          </div>
 
           <form onSubmit={onSubmit} className="form">
             <label>
@@ -117,8 +188,8 @@ function App() {
             </div>
 
             <div className="meta-row">
-              <span>{ingredientCount} ingredients detected</span>
-              <button type="submit" disabled={loading}>
+              <span className="helper-text">Add comma-separated ingredients to generate the recipe.</span>
+              <button type="submit" disabled={loading} className="primary-button">
                 {loading ? "Generating..." : "Generate Recipe"}
               </button>
             </div>
@@ -128,38 +199,82 @@ function App() {
         </section>
 
         <section className="card output-card">
-          <h2>Result</h2>
+          <div className="section-header">
+            <div>
+              <span className="eyebrow eyebrow-muted">Output</span>
+              <h2>Recipe and nutrition</h2>
+            </div>
+            <div className="result-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleDownloadRecipe}
+                disabled={!result?.recipe_text}
+              >
+                Download recipe
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleDownloadNutrition}
+                disabled={!nutritionEntries.length}
+              >
+                Download nutrition values
+              </button>
+            </div>
+          </div>
 
           {!result && <p className="placeholder">Your generated recipe will appear here.</p>}
 
           {result && (
             <>
-              <div className="recipe-block">
-                <h3>Recipe</h3>
-                <pre>{result.recipe_text || "No recipe returned."}</pre>
-              </div>
-
-              <div className="nutrition-block">
-                <h3>Nutrition (per serving)</h3>
-                <div className="nutrition-grid">
-                  {Object.entries(result.nutrition || {}).map(([key, value]) => (
-                    <div key={key} className="nutrition-item">
-                      <span className="k">{key}</span>
-                      <span className="v">{Number(value).toFixed(2)}</span>
+              <div className="content-grid">
+                <div className="recipe-block panel">
+                  <div className="panel-header">
+                    <div>
+                      <span className="eyebrow eyebrow-muted">Recipe</span>
+                      <h3>Generated draft</h3>
                     </div>
-                  ))}
+                  </div>
+                  <pre>{result.recipe_text || "No recipe returned."}</pre>
                 </div>
-              </div>
 
-              <div className="cand-block">
-                <h3>Top Candidates</h3>
-                <ul>
-                  {(result.candidates || []).slice(0, 3).map((cand, idx) => (
-                    <li key={`${idx}-${cand.score}`}>
-                      <strong>#{idx + 1}</strong> score: {cand.score.toFixed(1)}
-                    </li>
-                  ))}
-                </ul>
+                <div className="nutrition-block panel">
+                  <div className="panel-header">
+                    <div>
+                      <span className="eyebrow eyebrow-muted">Nutrition</span>
+                      <h3>Per serving estimate</h3>
+                    </div>
+                  </div>
+                  <div className="nutrition-grid">
+                    {nutritionEntries.map(({ label, value }) => (
+                      <div key={label} className="nutrition-item">
+                        <span className="k">{label}</span>
+                        <span className="v">{value.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="cand-block panel panel-wide">
+                  <div className="panel-header">
+                    <div>
+                      <span className="eyebrow eyebrow-muted">Candidates</span>
+                      <h3>Top ranked outputs</h3>
+                    </div>
+                  </div>
+                  <div className="candidate-list">
+                    {candidateEntries.map((cand, idx) => (
+                      <article key={`${idx}-${cand.score}`} className="candidate-card">
+                        <div className="candidate-topline">
+                          <span className="candidate-rank">#{idx + 1}</span>
+                          <span className="candidate-score">{cand.score.toFixed(1)} / 100</span>
+                        </div>
+                        <p>{cand.text}</p>
+                      </article>
+                    ))}
+                  </div>
+                </div>
               </div>
             </>
           )}
