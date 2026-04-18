@@ -118,7 +118,17 @@ function downloadFile(filename, content, mimeType) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function formatNutritionLabel(label) {
+  return String(label || "")
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s*Content$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function App() {
+  const [activePage, setActivePage] = useState("main");
   const [form, setForm] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -144,6 +154,7 @@ function App() {
 
     return Object.entries(result.nutrition).map(([label, value]) => ({
       label,
+      displayLabel: formatNutritionLabel(label),
       value: Number(value),
     }));
   }, [result]);
@@ -153,7 +164,11 @@ function App() {
       return [];
     }
 
-    return result.candidates.slice(0, 3);
+    return result.candidates.slice(1).map((cand, index) => ({
+      ...cand,
+      rank: index + 2,
+      parsed: parseRecipeText(cand?.text),
+    }));
   }, [result]);
 
   const onChange = (key, value) => {
@@ -188,6 +203,7 @@ function App() {
         timeout: 120000,
       });
       setResult(data);
+      setActivePage("main");
 
       setEvalLoading(true);
       try {
@@ -216,25 +232,40 @@ function App() {
     }
   };
 
-  const handleDownloadRecipe = () => {
-    if (!result?.recipe_text) {
+  const handleDownloadBundle = () => {
+    if (!result?.recipe_text && !nutritionEntries.length) {
       return;
     }
 
-    downloadFile("recipe.txt", result.recipe_text, "text/plain;charset=utf-8");
-  };
+    const recipeTitle = parsedRecipe.title || "Generated Recipe";
+    const safeName = recipeTitle
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || "generated-recipe";
 
-  const handleDownloadNutrition = () => {
-    if (!nutritionEntries.length) {
-      return;
-    }
+    const recipeSection = [
+      `# ${recipeTitle}`,
+      "",
+      ...(parsedRecipe.steps.length > 0
+        ? parsedRecipe.steps.map((step, index) => `${index + 1}. ${step}`)
+        : [result?.recipe_text || "No recipe returned."]),
+    ];
 
-    const csv = [
-      "Nutrient,Value",
-      ...nutritionEntries.map(({ label, value }) => `${label},${value.toFixed(2)}`),
-    ].join("\n");
+    const nutritionSection = [
+      "",
+      "## Nutrition (Per Serving)",
+      "",
+      ...(nutritionEntries.length > 0
+        ? [
+            "| Nutrient | Value |",
+            "| --- | ---: |",
+            ...nutritionEntries.map(({ displayLabel, value }) => `| ${displayLabel} | ${value.toFixed(2)} |`),
+          ]
+        : ["_No nutrition values available._"]),
+    ];
 
-    downloadFile("nutrition-values.csv", csv, "text/csv;charset=utf-8");
+    const content = [...recipeSection, ...nutritionSection].join("\n");
+    downloadFile(`${safeName}-recipe-and-nutrition.md`, content, "text/markdown;charset=utf-8");
   };
 
   return (
@@ -243,117 +274,117 @@ function App() {
       <div className="bg-shape bg-shape-b" />
       <div className="bg-grid" />
 
-      <main className="layout">
-        <section className="card input-card">
-          <div className="hero-copy">
-            <span className="eyebrow">Recipe generation + nutrition + quality score</span>
-            <h1>Naan Recipe Studio</h1>
-            <p className="subtitle">
-              Turn ingredients into a polished recipe draft, export nutrition values, and review automatic quality scoring.
-            </p>
-          </div>
-
-          <div className="stats-row" aria-label="Input summary">
-            <div className="stat-pill">
-              <span className="stat-value">{ingredientCount}</span>
-              <span className="stat-label">ingredients</span>
+      {activePage === "main" ? (
+        <main className="layout">
+          <section className="card input-card">
+            <div className="hero-copy">
+              <span className="eyebrow">Recipe generation + nutrition + quality score</span>
+              <h1>Naan Recipe Studio</h1>
+              <p className="subtitle">
+                Turn ingredients into a polished recipe draft, export nutrition values, and review automatic quality scoring.
+              </p>
             </div>
-            <div className="stat-pill">
-              <span className="stat-value">{form.total_minutes || 0}</span>
-              <span className="stat-label">minutes</span>
-            </div>
-            <div className="stat-pill">
-              <span className="stat-value">{form.servings || 4}</span>
-              <span className="stat-label">servings</span>
-            </div>
-          </div>
 
-          <form onSubmit={onSubmit} className="form">
-            <label>
-              Ingredients (comma separated)
-              <textarea
-                rows={5}
-                value={form.ingredients}
-                onChange={(e) => onChange("ingredients", e.target.value)}
-                placeholder="e.g. flour, yeast, yogurt, salt, olive oil"
-              />
-            </label>
+            <div className="stats-row" aria-label="Input summary">
+              <div className="stat-pill">
+                <span className="stat-value">{ingredientCount}</span>
+                <span className="stat-label">ingredients</span>
+              </div>
+              <div className="stat-pill">
+                <span className="stat-value">{form.total_minutes || 0}</span>
+                <span className="stat-label">minutes</span>
+              </div>
+              <div className="stat-pill">
+                <span className="stat-value">{form.servings || 4}</span>
+                <span className="stat-label">servings</span>
+              </div>
+            </div>
 
-            <div className="inline-grid">
+            <form onSubmit={onSubmit} className="form">
               <label>
-                Total Minutes
-                <input
-                  type="number"
-                  min="0"
-                  value={form.total_minutes}
-                  onChange={(e) => onChange("total_minutes", e.target.value)}
+                Ingredients (comma separated)
+                <textarea
+                  rows={5}
+                  value={form.ingredients}
+                  onChange={(e) => onChange("ingredients", e.target.value)}
+                  placeholder="e.g. flour, yeast, yogurt, salt, olive oil"
                 />
               </label>
 
-              <label>
-                Servings
-                <input
-                  type="number"
-                  min="1"
-                  step="0.5"
-                  value={form.servings}
-                  onChange={(e) => onChange("servings", e.target.value)}
-                />
-              </label>
+              <div className="inline-grid">
+                <label>
+                  Total Minutes
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.total_minutes}
+                    onChange={(e) => onChange("total_minutes", e.target.value)}
+                  />
+                </label>
 
-              <label>
-                Candidates
-                <input
-                  type="number"
-                  min="1"
-                  max="8"
-                  value={form.num_candidates}
-                  onChange={(e) => onChange("num_candidates", e.target.value)}
-                />
-              </label>
+                <label>
+                  Servings
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.5"
+                    value={form.servings}
+                    onChange={(e) => onChange("servings", e.target.value)}
+                  />
+                </label>
+
+                <label>
+                  Candidates
+                  <input
+                    type="number"
+                    min="1"
+                    max="8"
+                    value={form.num_candidates}
+                    onChange={(e) => onChange("num_candidates", e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="meta-row">
+                <span className="helper-text">{ingredientCount} ingredients detected</span>
+                <button type="submit" disabled={loading || evalLoading} className="primary-button">
+                  {loading ? "Generating..." : evalLoading ? "Scoring..." : "Generate Recipe"}
+                </button>
+              </div>
+            </form>
+
+            {error ? <p className="error">{error}</p> : null}
+          </section>
+
+          <section className="card output-card">
+            <div className="section-header">
+              <div>
+                <span className="eyebrow eyebrow-muted">Output</span>
+                <h2>Recipe and nutrition</h2>
+              </div>
+              <div className="result-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setActivePage("candidates")}
+                  disabled={!candidateEntries.length}
+                >
+                  View candidates page
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={handleDownloadBundle}
+                  disabled={!result?.recipe_text && !nutritionEntries.length}
+                >
+                  Download recipe + nutrition
+                </button>
+              </div>
             </div>
 
-            <div className="meta-row">
-              <span className="helper-text">{ingredientCount} ingredients detected</span>
-              <button type="submit" disabled={loading || evalLoading} className="primary-button">
-                {loading ? "Generating..." : evalLoading ? "Scoring..." : "Generate Recipe"}
-              </button>
-            </div>
-          </form>
+            {!result && <p className="placeholder">Your generated recipe, nutrition, and quality scores will appear here.</p>}
 
-          {error ? <p className="error">{error}</p> : null}
-        </section>
-
-        <section className="card output-card">
-          <div className="section-header">
-            <div>
-              <span className="eyebrow eyebrow-muted">Output</span>
-              <h2>Recipe and nutrition</h2>
-            </div>
-            <div className="result-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={handleDownloadRecipe}
-                disabled={!result?.recipe_text}
-              >
-                Download recipe
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={handleDownloadNutrition}
-                disabled={!nutritionEntries.length}
-              >
-                Download nutrition values
-              </button>
-            </div>
-          </div>
-
-          {!result && <p className="placeholder">Your generated recipe, nutrition, and quality scores will appear here.</p>}
-
-          {result && (
-            <>
+            {result ? (
               <div className="content-grid">
                 <div className="recipe-block panel">
                   <div className="panel-header">
@@ -385,101 +416,122 @@ function App() {
                       <h3>Per serving estimate</h3>
                     </div>
                   </div>
-                  <div className="nutrition-grid">
-                    {nutritionEntries.map(({ label, value }) => (
-                      <div key={label} className="nutrition-item">
-                        <span className="k">{label}</span>
-                        <span className="v">{value.toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {candidateEntries.length > 0 ? (
-                  <div className="cand-block panel panel-wide">
-                    <div className="panel-header">
-                      <div>
-                        <span className="eyebrow eyebrow-muted">Candidates</span>
-                        <h3>Top ranked outputs</h3>
-                      </div>
-                    </div>
-                    <div className="candidate-list">
-                      {candidateEntries.map((cand, idx) => (
-                        <article key={`${idx}-${cand.score}`} className="candidate-card">
-                          <div className="candidate-topline">
-                            <span className="candidate-rank">#{idx + 1}</span>
-                            <span className="candidate-score">{Number(cand.score || 0).toFixed(1)} / 100</span>
-                          </div>
-                          <p>{cand.text || ""}</p>
-                        </article>
+                  <table className="nutrition-table" aria-label="Nutrition values per serving">
+                    <tbody>
+                      {nutritionEntries.map(({ label, displayLabel, value }) => (
+                        <tr key={label}>
+                          <th scope="row">{displayLabel}</th>
+                          <td>{value.toFixed(2)}</td>
+                        </tr>
                       ))}
-                    </div>
-                  </div>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="card eval-card">
+            <h2>Automatic Quality Evaluation</h2>
+            <p className="helper-text">
+              This block directly scores the generated recipe against the closest ingredient-matched dataset reference.
+            </p>
+
+            {!result ? <p className="placeholder">Generate a recipe to see automatic evaluation.</p> : null}
+            {evalLoading ? <p className="helper-text">Scoring in progress...</p> : null}
+            {evalError ? <p className="error">{evalError}</p> : null}
+
+            {evaluation?.verdict ? (
+              <div className="evaluation-actions">
+                <span className={`verdict-badge verdict-${evaluation.verdict}`}>{evaluation.verdict}</span>
+                <span className="match-pill">
+                  Reference ingredient match: {Number(evaluation.reference_ingredient_match || 0).toFixed(1)}%
+                </span>
+              </div>
+            ) : null}
+
+            {evaluation?.reference_name ? (
+              <div className="reference-block">
+                <h4>Matched Reference: {evaluation.reference_name}</h4>
+                {parsedReference.steps.length > 0 ? (
+                  <ol className="reference-steps">
+                    {parsedReference.steps.slice(0, 5).map((step, idx) => (
+                      <li key={`ref-${idx}`}>{step}</li>
+                    ))}
+                  </ol>
                 ) : null}
               </div>
-            </>
-          )}
-        </section>
+            ) : null}
 
-        <section className="card eval-card">
-          <h2>Automatic Quality Evaluation</h2>
-          <p className="helper-text">
-            This block directly scores the generated recipe against the closest ingredient-matched dataset reference.
-          </p>
-
-          {!result ? <p className="placeholder">Generate a recipe to see automatic evaluation.</p> : null}
-          {evalLoading ? <p className="helper-text">Scoring in progress...</p> : null}
-          {evalError ? <p className="error">{evalError}</p> : null}
-
-          {evaluation?.verdict ? (
-            <div className="evaluation-actions">
-              <span className={`verdict-badge verdict-${evaluation.verdict}`}>{evaluation.verdict}</span>
-              <span className="match-pill">
-                Reference ingredient match: {Number(evaluation.reference_ingredient_match || 0).toFixed(1)}%
-              </span>
-            </div>
-          ) : null}
-
-          {evaluation?.reference_name ? (
-            <div className="reference-block">
-              <h4>Matched Reference: {evaluation.reference_name}</h4>
-              {parsedReference.steps.length > 0 ? (
-                <ol className="reference-steps">
-                  {parsedReference.steps.slice(0, 5).map((step, idx) => (
-                    <li key={`ref-${idx}`}>{step}</li>
+            {evaluation?.metrics ? (
+              <div className="metrics-grid">
+                {METRIC_ORDER
+                  .filter((key) => Object.prototype.hasOwnProperty.call(evaluation.metrics, key))
+                  .map((key) => (
+                    <div key={key} className="metric-item">
+                      <span className="k">{METRIC_INFO[key]?.label || key}</span>
+                      <span className="v">{Number(evaluation.metrics[key]).toFixed(2)}</span>
+                    </div>
                   ))}
-                </ol>
-              ) : null}
-            </div>
-          ) : null}
+              </div>
+            ) : null}
 
-          {evaluation?.metrics ? (
-            <div className="metrics-grid">
-              {METRIC_ORDER
-                .filter((key) => Object.prototype.hasOwnProperty.call(evaluation.metrics, key))
-                .map((key) => (
-                  <div key={key} className="metric-item">
-                    <span className="k">{METRIC_INFO[key]?.label || key}</span>
-                    <span className="v">{Number(evaluation.metrics[key]).toFixed(2)}</span>
-                  </div>
+            <div className="score-info-box">
+              <h3>What These Scores Mean</h3>
+              <p className="helper-text">All metrics are on a 0-100 scale. Higher is better.</p>
+              <div className="score-info-list">
+                {METRIC_ORDER.map((key) => (
+                  <details key={`info-${key}`} className="score-info-item">
+                    <summary>{METRIC_INFO[key]?.label || key}</summary>
+                    <p>{METRIC_INFO[key]?.description || ""}</p>
+                  </details>
                 ))}
+              </div>
             </div>
-          ) : null}
+          </section>
+        </main>
+      ) : (
+        <main className="layout layout-single">
+          <section className="card candidates-page-card">
+            <div className="section-header">
+              <div>
+                <span className="eyebrow eyebrow-muted">Candidates</span>
+                <h2>Alternative ranked recipes</h2>
+              </div>
+              <div className="result-actions">
+                <button type="button" className="secondary-button" onClick={() => setActivePage("main")}>
+                  Back to main page
+                </button>
+              </div>
+            </div>
 
-          <div className="score-info-box">
-            <h3>What These Scores Mean</h3>
-            <p className="helper-text">All metrics are on a 0-100 scale. Higher is better.</p>
-            <div className="score-info-list">
-              {METRIC_ORDER.map((key) => (
-                <details key={`info-${key}`} className="score-info-item">
-                  <summary>{METRIC_INFO[key]?.label || key}</summary>
-                  <p>{METRIC_INFO[key]?.description || ""}</p>
-                </details>
-              ))}
-            </div>
-          </div>
-        </section>
-      </main>
+            {!candidateEntries.length ? (
+              <p className="placeholder">Generate a recipe to view candidate alternatives.</p>
+            ) : (
+              <div className="candidate-list">
+                {candidateEntries.map((cand, idx) => (
+                  <article key={`${idx}-${cand.score}`} className="candidate-card">
+                    <div className="candidate-topline">
+                      <span className="candidate-rank">#{cand.rank}</span>
+                      <span className="candidate-score">{Number(cand.score || 0).toFixed(1)} / 100</span>
+                    </div>
+                    <h4 className="candidate-title">{cand.parsed.title || `Candidate #${cand.rank}`}</h4>
+                    {cand.parsed.steps.length > 0 ? (
+                      <ol className="candidate-steps">
+                        {cand.parsed.steps.map((step, stepIdx) => (
+                          <li key={`${cand.rank}-${stepIdx}`}>{step}</li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="candidate-fallback">{cand.text || "No candidate text returned."}</p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </main>
+      )}
     </div>
   );
 }

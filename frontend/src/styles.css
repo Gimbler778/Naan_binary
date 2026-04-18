@@ -88,6 +88,10 @@ body {
   gap: 24px;
 }
 
+.layout-single {
+  grid-template-columns: 1fr;
+}
+
 .input-card {
   grid-column: 1;
 }
@@ -97,6 +101,10 @@ body {
 }
 
 .eval-card {
+  grid-column: 1 / -1;
+}
+
+.candidates-page-card {
   grid-column: 1 / -1;
 }
 
@@ -290,7 +298,20 @@ input {
   font-size: 1rem;
   background: rgba(15, 23, 42, 0.55);
   color: #f8fafc;
+  width: 100%;
+  min-width: 0;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 textarea::placeholder,
@@ -325,6 +346,7 @@ textarea {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -354,7 +376,7 @@ textarea {
 
 .content-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 18px;
 }
 
@@ -396,13 +418,39 @@ textarea {
   color: #dbeafe;
 }
 
-.nutrition-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+.nutrition-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.5);
+  margin-top: 8px;
 }
 
-.nutrition-item,
+.nutrition-table tr + tr {
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.nutrition-table th,
+.nutrition-table td {
+  padding: 11px 14px;
+  text-align: left;
+}
+
+.nutrition-table th {
+  color: #dbeafe;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.nutrition-table td {
+  color: #86efac;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .metric-item {
   border: 1px solid rgba(249, 115, 22, 0.18);
   border-radius: 16px;
@@ -439,6 +487,32 @@ textarea {
   margin: 10px 0 0;
   color: #cbd5e1;
   line-height: 1.6;
+}
+
+.candidate-title {
+  margin: 12px 0 8px;
+  color: #fff7ed;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.candidate-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+}
+
+.candidate-steps li {
+  color: #dbeafe;
+  line-height: 1.5;
+}
+
+.candidate-fallback {
+  margin: 8px 0 0;
+  color: #cbd5e1;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .candidate-topline {
@@ -624,7 +698,6 @@ textarea {
 
   .stats-row,
   .inline-grid,
-  .nutrition-grid,
   .metrics-grid {
     grid-template-columns: 1fr;
   }
